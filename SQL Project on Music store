@@ -1,0 +1,101 @@
+Data Analysis project in SQL for Music Store Dataset. There are 3 levels of questions named Easy, intermediate and advanced.
+Tools Used : Google BigQuery SQL Workspace
+
+Easy Level Questions
+
+/* Q1: Who is the senior most employee based on job title? */
+Select * from `Music_database.Employee`
+Order BY levels desc limit 3 ;
+
+/* Q2: Which countries have the most Invoices? */
+SELECT Count (*) AS C, billing_country From Music_database.Invoice
+GROUP BY billing_country
+Order BY C DESC;
+
+/* Q3: What are top 3 values of total invoice? */
+Select total FROM `Music_database.Invoice`
+Order by total DESC limit 3;
+
+/* Q4: Which city has the best customers? We would like to throw a promotional Music Festival in the city we made the most money. 
+Write a query that returns one city that has the highest sum of invoice totals. 
+Return both the city name & sum of all invoice totals */
+
+Select sum(total) AS Invoice_total, billing_city From `Music_database.Invoice`
+Group by billing_city
+Order BY Invoice_total DESC;
+
+
+/* Q5: Who is the best customer? The customer who has spent the most money will be declared the best customer. 
+Write a query that returns the person who has spent the most money.*/
+
+SELECT CONCAT (`Music_database.Customer`.first_name,' ' , `Music_database.Customer`.last_name) AS Fullname,SUM(`Music_database.Invoice`.total) AS Total From `Music_database.Customer` 
+JOIN `Music_database.Invoice` ON `Music_database.Customer`.customer_id = `Music_database.Invoice`.customer_id
+Group BY Fullname 
+Order BY Total DESC ;
+
+
+
+/* Question Set 2 - Moderate */ 
+
+Demonstrated the use of joins and subqueries to solve these questions:
+
+/* Q1: Write query to return the email, first name, last name, & Genre of all Rock Music listeners. 
+Return your list ordered alphabetically by email starting with A. */
+
+Select DISTINCT CONCAT(`Music_database.Customer`.first_name, ' ' ,`Music_database.Customer`.last_name) AS Full_name,`Music_database.Customer`.email, `Music_database.Genre`.name From `Music_database.Customer`
+JOIN `Music_database.Invoice` ON `Music_database.Customer`.customer_id =  `Music_database.Invoice`.customer_id 
+JOIN `Music_database.Invoice Line` ON `Music_database.Invoice`.invoice_id = `Music_database.Invoice Line`.invoice_id 
+JOIN `Music_database.Track` ON `Music_database.Invoice Line`.track_id = `Music_database.Track`.track_id
+JOIN `Music_database.Genre` ON `Music_database.Track`.genre_id = `Music_database.Genre`.genre_id
+Where `Music_database.Genre`.name = 'Rock'
+Order By Full_name;
+
+/* Q2: Let's invite the artists who have written the most rock music in our dataset. 
+Write a query that returns the Artist name and total track count of the top 10 rock bands. */
+Select COUNT (`Music_database.Artist`.artist_id) AS Track_Number,`Music_database.Artist`.name,  FROM `Music_database.Artist`
+JOIN `Music_database.Album` ON `Music_database.Artist`.artist_id = `Music_database.Album`.artist_id
+JOIN `Music_database.Track` ON `Music_database.Album`.album_id = `Music_database.Track`.album_id
+Group BY `Music_database.Artist`.name
+Order BY Track_number DESC
+Limit 10;
+
+/* Q3: Return all the track names that have a song length longer than the average song length. 
+Return the Name and Milliseconds for each track. Order by the song length with the longest songs listed first. */
+
+Select name, milliseconds FROM `Music_database.Track`
+Where milliseconds > 
+(Select AVG(milliseconds) AS Averge_track_length
+FROM `Music_database.Track`) 
+ORDER BY Milliseconds DESC;
+
+/* Question Set 3 - Advance */
+
+Demonstrated the use of Joins, Sugqueries, Common table expressions, window and analytical functions
+
+/* Q1: Find how much amount spent by each customer on artists? Write a query to return customer name, artist name and total spent */
+
+WITH Best_selling AS (
+SELECT `Music_database.Invoice Line`.invoice_id ,SUM(`Music_database.Invoice Line`.unit_price*`Music_database.Invoice Line`.quantity) AS Total_Spends,`Music_database.Artist`.name AS Artist_Name,FROM `Music_database.Invoice Line`
+JOIN `Music_database.Track` ON `Music_database.Invoice Line`.track_id = `Music_database.Track`.track_id
+JOIN  `Music_database.Album` ON `Music_database.Track`.album_id = `Music_database.Album`.album_id
+JOIN `Music_database.Artist` ON `Music_database.Album`.artist_id = `Music_database.Artist`.artist_id
+Group BY Artist_Name, invoice_id
+Order BY Total_Spends Desc)
+Select CONCAT(`Music_database.Customer`.first_name, ' ' ,`Music_database.Customer`.last_name) AS Customer_name, Best_selling.Artist_name, Best_selling.Total_Spends From `Music_database.Customer` 
+JOIN `Music_database.Invoice` ON `Music_database.Customer`.customer_id = `Music_database.Invoice`.customer_id
+JOIN Best_selling ON `Music_database.Invoice`.invoice_id = Best_selling.invoice_id 
+Order BY Best_selling.Total_Spends DESC;
+
+/* Q2: We want to find out the most popular music Genre for each country. We determine the most popular genre as the genre 
+with the highest amount of purchases. Write a query that returns each country along with the top Genre. For countries where 
+the maximum number of purchases is shared return all Genres. */
+WITH Top_Selling_artists AS(
+SELECT Count(`Music_database.Track`.track_id) AS Tracks,`Music_database.Invoice`.billing_country,`Music_database.Genre`.name, ROW_NUMBER() OVER(PARTITION BY `Music_database.Invoice`.billing_country Order BY Count(`Music_database.Track`.track_id) DESC ) AS Row_No From `Music_database.Genre`
+Join `Music_database.Track` ON `Music_database.Genre`.genre_id = `Music_database.Track`.genre_id
+JOIN `Music_database.Invoice Line` ON `Music_database.Track`.track_id = `Music_database.Invoice Line`.track_id
+JOIN `Music_database.Invoice` ON `Music_database.Invoice Line`.invoice_id = `Music_database.Invoice`.invoice_id
+Group BY `Music_database.Invoice`.billing_country,`Music_database.Genre`.name
+)
+Select * FROM Top_Selling_artists Where Row_no <= 1
+Order By billing_country 
+
